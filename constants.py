@@ -1,0 +1,9 @@
+TCP_IP = '127.0.0.1'
+TCP_PORT = 5005
+
+MCAST_GRP = '224.1.1.1'
+MCAST_PORT = 5007
+
+KEY_SIZE = 32  # AES-256
+IV_SIZE = 16   # AES CBC block size
+
