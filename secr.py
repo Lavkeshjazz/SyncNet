@@ -3,12 +3,13 @@ import socket
 import os
 import struct
 import time
+import uuid
 from hashlib import blake2b
 from cryptography.hazmat.primitives import serialization, hashes, padding as sym_padding
 from cryptography.hazmat.primitives.asymmetric import padding as asym_padding
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-
+from config import PORT, CHUNK_SIZE, METADATA_MAGIC
 class SecureSender:
     def __init__(self):
         self.aes_key = os.urandom(32)
@@ -62,17 +63,42 @@ class SecureSender:
         checksum = blake2b(message, digest_size=32).digest()
         return seq_num.to_bytes(4, 'big') + iv + ciphertext + checksum
 
-    def send_multicast(self):
+    def send_metadata(self,sock, multicast_ip, file_id, filename):
+        file_id_bytes = file_id.encode()
+        filename_bytes = os.path.basename(filename).encode()
+        file_id_len = len(file_id_bytes)
+        metadata_packet = METADATA_MAGIC + struct.pack(">H", file_id_len) + file_id_bytes + filename_bytes
+        sock.sendto(metadata_packet, (multicast_ip, PORT))
+
+    def chunk_file(self,filepath, chunk_size):
+        with open(filepath, 'rb') as f:
+            while True:
+                chunk = f.read(chunk_size)
+                if not chunk:
+                    break
+                yield chunk
+
+    def send_multicast(self,filepath):
+        # File Metadata
+        file_id = str(uuid.uuid4())
+        filename = os.path.basename(filepath)
+        file_id_bytes = file_id.encode()
+        file_id_len = len(file_id_bytes)
+
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, struct.pack('b', 1))
+        self.send_metadata(sock, self.mcast_group, file_id, filename)
         print("📡 Sending multicast packets...")
-        for i, msg in enumerate(self.messages, 1):
+        for i, chunk in enumerate(self.chunk_file(filepath, CHUNK_SIZE)):
+            header = struct.pack(">H", file_id_len) + file_id_bytes + struct.pack(">I", i)
+            msg = header + chunk
             packet = self.encrypt_packet(i, msg)
             sock.sendto(packet, (self.mcast_group, self.mcast_port))
             self.sent_packets[i] = packet  # Store for potential repair
             print(f"✅ Sent packet {i}")
             time.sleep(1)
         sock.sendto(b"EOF", (self.mcast_group, self.mcast_port))
+        sock.close()
         print("🛑 Sent EOF")
         sock.close()
 
@@ -107,7 +133,12 @@ class SecureSender:
     def run(self):
         print("🚀 Starting Secure Multicast Sender")
         self.tcp_key_exchange()
-        self.send_multicast()
+        # Create a File Picker here
+
+        file_path = input("File to send: ")
+        if not os.path.isfile(file_path):
+            raise FileNotFoundError(f"Expected a file but found something else: {file_path}")
+        self.send_multicast(file_path)
         self.handle_repair()
         print("🎉 Transmission completed successfully!")
 

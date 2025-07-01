@@ -9,6 +9,8 @@ from cryptography.hazmat.primitives.asymmetric import rsa, padding as asym_paddi
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
+METADATA_MAGIC = b'META'  # Same as sender
+
 class SecureReceiver:
     def __init__(self):
         self.private_key = None
@@ -20,6 +22,7 @@ class SecureReceiver:
         self.mcast_port = 5007
         self.received_packets = {}  # seq_num: plaintext
         self.expected_total = 4  # Set expected message count
+        self.filename = '' 
 
     def generate_rsa_keypair(self):
         self.private_key = rsa.generate_private_key(
@@ -55,6 +58,7 @@ class SecureReceiver:
         conn.close()
         tcp_sock.close()
 
+
     def decrypt_message(self, packet):
         iv = packet[:16]
         ciphertext = packet[16:-32]
@@ -76,32 +80,52 @@ class SecureReceiver:
         sock.bind(('', self.mcast_port))
         mreq = struct.pack("4sl", socket.inet_aton(self.mcast_group), socket.INADDR_ANY)
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+        
         print("📡 Listening for multicast messages...")
         while True:
             data, _ = sock.recvfrom(20480)
+            
             if data == b"EOF":
                 print("🛑 Transmission complete.")
                 break
+            
+            # Check for metadata
+            if data.startswith(METADATA_MAGIC):
+                try:
+                    file_id_len = struct.unpack(">H", data[4:6])[0]
+                    file_id_end = 6 + file_id_len
+                    file_id = data[6:file_id_end].decode()
+                    filename = data[file_id_end:].decode()
+                    self.file_id = file_id
+                    self.filename = filename
+                    print(f"ℹ️ Received metadata: file_id={file_id}, filename={filename}")
+                except Exception as e:
+                    print(f"❌ Failed to parse metadata: {e}")
+                continue
+            
             seq_num = int.from_bytes(data[:4], 'big')
             packet = data[4:]
             msg = self.decrypt_message(packet)
             if msg:
                 self.received_packets[seq_num] = msg
-                print(f"✅ Message {seq_num}: {msg.decode()}")
+                print(f"✅ Received packet {seq_num}")
             else:
-                print(f"❌ Failed to decrypt message {seq_num}")
+                print(f"❌ Failed to decrypt packet {seq_num}")
+
         sock.close()
 
+        # Infer total packets
+        self.expected_total = max(self.received_packets.keys(), default=0)
+
     def request_missing(self):
-        missing = [str(i) for i in range(1, self.expected_total+1) if i not in self.received_packets]
+        missing = [str(i) for i in range(1, self.expected_total + 1) if i not in self.received_packets]
         
-        # Always connect to sender to report status
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect(('localhost', self.repair_port))
         
         if not missing:
             print("✅ All packets received.")
-            sock.sendall(b"COMPLETE")  # Signal no repair needed
+            sock.sendall(b"COMPLETE")
             sock.close()
             return
         
@@ -116,15 +140,27 @@ class SecureReceiver:
             packet = data[4:]
             msg = self.decrypt_message(packet)
             if msg:
-                print(f"🛠️ Recovered {seq_num}: {msg.decode()}")
+                print(f"🛠️ Recovered {seq_num}")
                 self.received_packets[seq_num] = msg
         sock.close()
 
+    def write_file(self, output_dir="./received_files/"):
+        if not self.filename:
+            raise ValueError("❌ Cannot write file: filename not set from metadata.")
+
+        os.makedirs(output_dir, exist_ok=True)  # Ensure output dir exists
+        output_path = os.path.join(output_dir, self.filename)
+
+        with open(output_path, "wb") as f:
+            for seq in sorted(self.received_packets):
+                header_len = 2 + len(self.file_id.encode()) + 4
+                f.write(self.received_packets[seq][header_len:])
+        print(f"💾 File written to {output_path}")
     def run(self):
         self.generate_rsa_keypair()
         self.tcp_handshake()
         self.listen_multicast()
         self.request_missing()
-
+        self.write_file()
 if __name__ == "__main__":
     SecureReceiver().run()
