@@ -88,7 +88,6 @@ class SecureReceiver:
             if data == b"EOF":
                 print("🛑 Transmission complete.")
                 break
-            
             # Check for metadata
             if data.startswith(METADATA_MAGIC):
                 try:

@@ -9,7 +9,7 @@ from cryptography.hazmat.primitives import serialization, hashes, padding as sym
 from cryptography.hazmat.primitives.asymmetric import padding as asym_padding
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from config import PORT, CHUNK_SIZE, METADATA_MAGIC
+from config import  CHUNK_SIZE, METADATA_MAGIC
 class SecureSender:
     def __init__(self):
         self.aes_key = os.urandom(32)
@@ -20,12 +20,6 @@ class SecureSender:
         self.repair_port = 10000
         self.mcast_group = '224.1.1.1'
         self.mcast_port = 5007
-        self.messages = [
-            b"Hello from secure multicast!",
-            b"This is message #2 - encrypted with AES-256",
-            b"Message #3: Your data is protected.",
-            b"Final message: End-to-end encryption working perfectly!"
-        ]
         self.sent_packets = {}  # Store packets by sequence number
 
     def tcp_key_exchange(self):
@@ -68,7 +62,8 @@ class SecureSender:
         filename_bytes = os.path.basename(filename).encode()
         file_id_len = len(file_id_bytes)
         metadata_packet = METADATA_MAGIC + struct.pack(">H", file_id_len) + file_id_bytes + filename_bytes
-        sock.sendto(metadata_packet, (multicast_ip, PORT))
+        print(metadata_packet)
+        sock.sendto(metadata_packet, (multicast_ip, self.mcast_port))
 
     def chunk_file(self,filepath, chunk_size):
         with open(filepath, 'rb') as f:
