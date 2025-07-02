@@ -45,17 +45,16 @@ def load_config(config_path):
         print("Warning: Config file is corrupted. Reconfiguring...")
         return None
 
-    def get_local_ip():
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        try:
-            s.connect(('8.8.8.8', 80))
-            return s.getsockname()[0]
-        finally:
-            s.close()
+def get_local_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(('8.8.8.8', 80))
+        return s.getsockname()[0]
+    finally:
+        s.close()
 
-    cur_ip = get_local_ip()
 def main(zeroconf,config):
-    cur_ip = get_local_ip() 
+    cur_ip = get_local_ip()
     desc = {
         'version': config["version"],
         'info': config["info"]
