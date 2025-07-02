@@ -35,13 +35,15 @@ class SecureReceiver:
         self.public_key = self.private_key.public_key()
 
     def tcp_handshake(self):
-        self.cur_ip = get_current_ip()
+        self.generate_rsa_keypair()  # Ensure keypair is ready before handshake
         tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         tcp_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        tcp_sock.bind((self.cur_ip, self.tcp_port))
+        tcp_sock.bind(('', self.tcp_port))  # Listen on all interfaces
         tcp_sock.listen(1)
         print("📥 Waiting for TCP connection...")
-        conn, _ = tcp_sock.accept()
+        conn, addr = tcp_sock.accept()
+        self.cur_ip = addr[0]  # ✅ Sender's IP
+
         pem = self.public_key.public_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo
@@ -58,6 +60,7 @@ class SecureReceiver:
         )
         print("✅ AES key derived.")
         conn.sendall(b"READY")
+
         metadata = conn.recv(2048).decode()
         group_name, mcast_ip, mcast_port = metadata.split(',')
         self.mcast_group = mcast_ip
@@ -65,7 +68,6 @@ class SecureReceiver:
         self.group_name = group_name
         conn.close()
         tcp_sock.close()
-
 
     def decrypt_message(self, packet):
         iv = packet[:16]
@@ -176,7 +178,7 @@ if __name__ == "__main__":
     parser.add_argument("--config", type=str, help="Path to custom config file")
 
     args = parser.parse_args()
-    zeroconf = Zeroconf()
+    zeroconf = Zeroconf(interfaces=InterfaceChoice.All)
     config_path = get_config_path(args.config)
 
     if args.reset and os.path.exists(config_path):

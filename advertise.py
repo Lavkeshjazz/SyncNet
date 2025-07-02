@@ -3,7 +3,7 @@ import json
 import socket
 import time
 import argparse
-from zeroconf import Zeroconf, ServiceInfo
+from zeroconf import Zeroconf, ServiceInfo , InterfaceChoice
 from discovery_ui import ReceiverServiceBrowser, select_receiver
 
 def get_config_path(cli_config_path=None):
