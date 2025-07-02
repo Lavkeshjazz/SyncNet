@@ -40,7 +40,6 @@ class SecureReceiver:
         tcp_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         tcp_sock.bind((self.cur_ip, self.tcp_port))
         tcp_sock.listen(1)
-        print(self.tcp_port)
         print("📥 Waiting for TCP connection...")
         conn, _ = tcp_sock.accept()
         pem = self.public_key.public_bytes(

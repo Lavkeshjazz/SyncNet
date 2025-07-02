@@ -150,8 +150,6 @@ class SecureSender:
         # Step 2: Use selected receiver's IP and port
         self.tcp_host = socket.inet_ntoa(selected_info.addresses[0])
         self.tcp_port = selected_info.port
-        print(self.tcp_port)
-        print(self.tcp_host)
 
         self.tcp_key_exchange()
 
