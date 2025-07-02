@@ -1,0 +1,5 @@
+# config.py
+PORT = 5007
+CHUNK_SIZE = 16384
+METADATA_MAGIC = b'META'
+

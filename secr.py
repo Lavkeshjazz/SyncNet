@@ -96,7 +96,9 @@ class SecureSender:
             sock.sendto(packet, (self.mcast_group, self.mcast_port))
             self.sent_packets[i] = packet  # Store for potential repair
             print(f"✅ Sent packet {i}")
-            time.sleep(1)
+            if i % 500 == 0:
+                time.sleep(0.0001)  # Sleep for 10μs every 100 packets
+        time.sleep(0.0001)
         sock.sendto(b"EOF", (self.mcast_group, self.mcast_port))
         sock.close()
         print("🛑 Sent EOF")
@@ -124,8 +126,15 @@ class SecureSender:
         for m in missing:
             seq = int(m)
             if seq in self.sent_packets:
-                conn.sendall(self.sent_packets[seq])
-                print(f"🔁 Resent packet {seq}")
+                 conn.sendall(struct.pack(">I", len(self.sent_packets[seq])))  # Send length first
+                 conn.sendall(self.sent_packets[seq])  # Then the actual packet
+                 print(f"🔁 Resent packet {seq}")
+                 time.sleep(0.01)
+        # for m in missing:
+        #     seq = int(m)
+        #     if seq in self.sent_packets:
+        #         conn.sendall(self.sent_packets[seq])
+        #         print(f"🔁 Resent packet {seq}")
         
         conn.close()
         sock.close()
