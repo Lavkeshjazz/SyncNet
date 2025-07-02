@@ -10,6 +10,14 @@ from cryptography.hazmat.primitives.asymmetric import padding as asym_padding
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from config import  CHUNK_SIZE, METADATA_MAGIC
+from ui_helpers import get_file_path
+from discovery_ui import ReceiverServiceBrowser, select_receiver
+from rich.console import Console
+from rich.panel import Panel
+from rich.align import Align
+from helpers import get_current_ip
+console = Console()
+
 class SecureSender:
     def __init__(self):
         self.aes_key = os.urandom(32)
@@ -45,6 +53,9 @@ class SecureSender:
         if status.strip() != b"READY":
             print("❌ Receiver not ready.")
             exit(1)
+        group_name = "default_group"  # Replace with actual logic if needed
+        meta = f"{group_name},{self.mcast_group},{self.mcast_port}".encode()
+        sock.sendall(meta)
         sock.close()
 
     def encrypt_packet(self, seq_num, message):
@@ -62,7 +73,6 @@ class SecureSender:
         filename_bytes = os.path.basename(filename).encode()
         file_id_len = len(file_id_bytes)
         metadata_packet = METADATA_MAGIC + struct.pack(">H", file_id_len) + file_id_bytes + filename_bytes
-        print(metadata_packet)
         sock.sendto(metadata_packet, (multicast_ip, self.mcast_port))
 
     def chunk_file(self,filepath, chunk_size):
@@ -98,9 +108,10 @@ class SecureSender:
         sock.close()
 
     def handle_repair(self):
+        ip = get_current_ip()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind(('localhost', self.repair_port))
+        sock.bind((ip, self.repair_port))
         sock.listen(1)
         print("🔧 Waiting for repair request...")
         
@@ -126,16 +137,31 @@ class SecureSender:
         sock.close()
 
     def run(self):
-        print("🚀 Starting Secure Multicast Sender")
-        self.tcp_key_exchange()
-        # Create a File Picker here
+        console.print(Align.center(Panel.fit("[bold blue]🚀 Starting Secure Multicast Sender[/bold blue]")))
 
-        file_path = input("File to send: ")
-        if not os.path.isfile(file_path):
-            raise FileNotFoundError(f"Expected a file but found something else: {file_path}")
+        # Step 1: Discover receivers via Zeroconf
+        browser = ReceiverServiceBrowser()
+        services = browser.discover()
+
+        selected_info = select_receiver(services)
+        if not selected_info:
+            return
+
+        # Step 2: Use selected receiver's IP and port
+        self.tcp_host = socket.inet_ntoa(selected_info.addresses[0])
+        self.tcp_port = selected_info.port
+        print(self.tcp_port)
+        print(self.tcp_host)
+
+        self.tcp_key_exchange()
+
+        # Step 3: Pick file to send
+        from ui_helpers import get_file_path
+        file_path = get_file_path()
+
         self.send_multicast(file_path)
         self.handle_repair()
-        print("🎉 Transmission completed successfully!")
+        console.print(Align.center("[bold green]🎉 Transmission completed successfully![/bold green]"))
 
 if __name__ == "__main__":
     SecureSender().run()
