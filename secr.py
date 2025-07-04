@@ -101,7 +101,9 @@ class SecureSender:
             sock.sendto(packet, (self.mcast_group, self.mcast_port))
             self.sent_packets[i] = packet
             print(f"✅ Sent packet {i}")
-            time.sleep(0.5)  # optional throttle
+            if i % 500 == 0:
+                time.sleep(0.0001)  # Sleep for 10μs every 100 packets
+        time.sleep(0.0001)
         sock.sendto(b"EOF", (self.mcast_group, self.mcast_port))
         sock.close()
         console.print("🛑 [green]EOF sent.[/green]")
@@ -159,18 +161,8 @@ class SecureSender:
 
         file_path = get_file_path()
         self.send_multicast(file_path)
-
-        # Repair per receiver using threads
-        threads = []
-        for ip in self.receivers:
-            t = threading.Thread(target=self.handle_single_repair, args=(ip,))
-            threads.append(t)
-            t.start()
-
-        for t in threads:
-            t.join()
-
-        console.print(Align.center("[bold green]🎉 Transmission completed successfully![/bold green]"))
+        self.handle_repair()
+        print("🎉 Transmission completed successfully!")
 
 if __name__ == "__main__":
     SecureSender().run()
