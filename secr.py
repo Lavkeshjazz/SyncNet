@@ -4,6 +4,7 @@ import struct
 import time
 import uuid
 import threading
+import selectors
 from hashlib import blake2b
 from cryptography.hazmat.primitives import serialization, hashes, padding as sym_padding
 from cryptography.hazmat.primitives.asymmetric import padding as asym_padding
@@ -108,37 +109,67 @@ class SecureSender:
         sock.close()
         console.print("🛑 [green]EOF sent.[/green]")
 
-    def handle_single_repair(self, ip):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind((get_current_ip(), self.repair_port))
-        sock.listen(1)
-        print(f"🔧 Waiting for repair request from {ip}...")
+    def handle_repair(self):
+        sel = selectors.DefaultSelector()
+        server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server_sock.bind((get_current_ip(), self.repair_port))
+        server_sock.listen()
+        server_sock.setblocking(False)
+        sel.register(server_sock, selectors.EVENT_READ, data=None)
 
-        conn, addr = sock.accept()
-        if addr[0] != ip:
-            print(f"⚠️ Skipping unexpected repair request from {addr[0]}")
-            conn.close()
-            sock.close()
-            return
+        console.print(f"🔧 [yellow]Repair server listening on {get_current_ip()}:{self.repair_port}[/yellow]")
 
-        request = conn.recv(1024)
-        if request == b"COMPLETE":
-            print(f"✅ Receiver at {ip} received all packets.")
-            conn.close()
-            sock.close()
-            return
+        def service_connection(key, mask):
+            sock = key.fileobj
+            addr = key.data["addr"]
+            try:
+                data = sock.recv(4096)
+                if not data:
+                    sel.unregister(sock)
+                    sock.close()
+                    return
 
-        missing = request.decode().split(',')
-        print(f"🔁 Repairing for {ip}: missing packets {missing}")
-        for m in missing:
-            seq = int(m)
-            if seq in self.sent_packets:
-                conn.sendall(self.sent_packets[seq])
-                print(f"🔁 Resent packet {seq} to {ip}")
-        conn.close()
-        sock.close()
+                if data == b"COMPLETE":
+                    console.print(f"✅ Receiver at {addr} completed transmission.")
+                    sel.unregister(sock)
+                    sock.close()
+                    return
 
+                missing = data.decode().split(',')
+                console.print(f"🔁 [cyan]Resending {len(missing)} packets to {addr}[/cyan]")
+                for m in missing:
+                    try:
+                        seq = int(m)
+                        if seq in self.sent_packets:
+                            sock.sendall(self.sent_packets[seq])
+                            console.print(f"🔁 Resent packet {seq} to {addr}")
+                    except Exception as e:
+                        console.print(f"[red]❌ Failed to send packet {m} to {addr}: {e}[/red]")
+
+                sel.unregister(sock)
+                sock.close()
+            except Exception as e:
+                console.print(f"[red]❌ Error handling repair request from {addr}: {e}[/red]")
+                sel.unregister(sock)
+                sock.close()
+
+        # Wait for repair requests for a fixed duration or until all are done
+        timeout = time.time() + 10  # seconds
+        while time.time() < timeout:
+            events = sel.select(timeout=1)
+            for key, mask in events:
+                if key.data is None:
+                    conn, addr = key.fileobj.accept()
+                    conn.setblocking(False)
+                    console.print(f"🔧 Repair connection from {addr}")
+                    sel.register(conn, selectors.EVENT_READ, data={"addr": addr[0]})
+                else:
+                    service_connection(key, mask)
+
+        sel.close()
+        server_sock.close()
+        console.print("[green]✅ Repair session ended[/green]")
     def run(self):
         console.print(Align.center(Panel.fit("[bold blue]🚀 Starting Secure Multicast Sender[/bold blue]")))
 

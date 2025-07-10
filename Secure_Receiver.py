@@ -126,32 +126,47 @@ class SecureReceiver:
         # Infer total packets
         self.expected_total = max(self.received_packets.keys(), default=0)
 
-    def request_missing(self):
+    def request_missing(self, max_retries=5, retry_delay=2):
         missing = [str(i) for i in range(1, self.expected_total + 1) if i not in self.received_packets]
-        
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((self.cur_ip, self.repair_port))
-        
+
+        retries = 0
+        while retries < max_retries:
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(5)  # Optional: to prevent long hangs
+                sock.connect((self.cur_ip, self.repair_port))
+                break  # Connected successfully
+            except (ConnectionRefusedError, socket.timeout) as e:
+                retries += 1
+                print(f"⚠️ Connection attempt {retries}/{max_retries} failed: {e}")
+                time.sleep(retry_delay)
+        else:
+            print("❌ Could not connect to repair server after several attempts.")
+            return
+
         if not missing:
             print("✅ All packets received.")
             sock.sendall(b"COMPLETE")
             sock.close()
             return
-        
+
         print(f"🔁 Requesting missing packets: {missing}")
-        sock.sendall(','.join(missing).encode())
-        
-        while True:
-            data = sock.recv(20480)
-            if not data:
-                break
-            seq_num = int.from_bytes(data[:4], 'big')
-            packet = data[4:]
-            msg = self.decrypt_message(packet)
-            if msg:
-                print(f"🛠️ Recovered {seq_num}")
-                self.received_packets[seq_num] = msg
-        sock.close()
+        try:
+            sock.sendall(','.join(missing).encode())
+            while True:
+                data = sock.recv(20480)
+                if not data:
+                    break
+                seq_num = int.from_bytes(data[:4], 'big')
+                packet = data[4:]
+                msg = self.decrypt_message(packet)
+                if msg:
+                    print(f"🛠️ Recovered {seq_num}")
+                    self.received_packets[seq_num] = msg
+        except Exception as e:
+            print(f"❌ Error during repair session: {e}")
+        finally:
+            sock.close()
 
     def write_file(self, output_dir="./received_files/"):
         if not self.filename:
