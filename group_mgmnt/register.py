@@ -1,5 +1,3 @@
-# register.py
-
 from rich.console import Console
 from rich.prompt import Prompt
 from rich.panel import Panel
@@ -76,14 +74,13 @@ def register_user():
 
     elif role == "warehouse":
         location = Prompt.ask("📍 Enter [bold]warehouse location[/bold]")
-        hub_id = Prompt.ask("🔗 Enter [bold]associated Hub ID[/bold] (0 if unknown)", default="0")
-        register_warehouse(name, location, contact, user_id, hashed_pw, ip_address, hub_id, today)
+        register_warehouse(name, location, contact, user_id, hashed_pw, ip_address, today)
 
     elif role == "hub":
         location = Prompt.ask("📍 Enter [bold]hub location[/bold]")
         register_hub(name, location, contact, user_id, hashed_pw, ip_address, today)
 
-    input("\nPress Enter to return to menu...")
+    
 
 def register_supplier(name, contact, user_id, password, ip, date):
     conn = connect_db()
@@ -100,15 +97,14 @@ def register_supplier(name, contact, user_id, password, ip, date):
     finally:
         conn.close()
 
-def register_warehouse(name, location, contact, user_id, password, ip, hub_id, date):
+def register_warehouse(name, location, contact, user_id, password, ip, date):
     conn = connect_db()
     cursor = conn.cursor()
-    hub_id = int(hub_id) if hub_id.isdigit() else None
     try:
         cursor.execute('''
-            INSERT INTO Warehouses (warehouse_name, location, contact_number, user_id, password, ip_address, hub_id, orders_sent, date_of_joining)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (name, location, contact, user_id, password, ip, hub_id, 0, date))
+            INSERT INTO Warehouses (warehouse_name, location, contact_number, user_id, password, ip_address, orders_sent, date_of_joining)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (name, location, contact, user_id, password, ip, 0, date))
         conn.commit()
         console.print(Panel.fit(f"✅ [bold green]Warehouse '{name}' registered successfully![/bold green] 📦", box=box.ROUNDED, border_style="yellow"))
     except Exception as e:
