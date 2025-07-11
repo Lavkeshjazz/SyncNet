@@ -9,6 +9,7 @@ from rich.align import Align
 from rich.panel import Panel
 from rich import box
 import time
+import sqlite3
 
 console = Console()
 
@@ -51,8 +52,36 @@ def scan_network(subnet="192.168.1.0/24", timeout=5):
         })
     return devices
 
+# 🔍 Match scanned IPs with registered users
+def get_registered_devices():
+    conn = sqlite3.connect("syncnet.db")
+    cursor = conn.cursor()
+
+    ip_to_identity = {}
+
+    # Fetch from Suppliers
+    cursor.execute("SELECT ip_address, supplier_name FROM Suppliers")
+    for ip, name in cursor.fetchall():
+        if ip:
+            ip_to_identity[ip] = f"Supplier: {name}"
+
+    # Fetch from Warehouses
+    cursor.execute("SELECT ip_address, warehouse_name FROM Warehouses")
+    for ip, name in cursor.fetchall():
+        if ip:
+            ip_to_identity[ip] = f"Warehouse: {name}"
+
+    # Fetch from RegionalHubs
+    cursor.execute("SELECT ip_address, hub_name FROM RegionalHubs")
+    for ip, name in cursor.fetchall():
+        if ip:
+            ip_to_identity[ip] = f"Hub: {name}"
+
+    conn.close()
+    return ip_to_identity
+
 # 📊 Display results
-def show_table(devices):
+def show_table(devices, registered_map):
     console.clear()
     header = Panel.fit("[bold blue]📡 Network Device Scanner[/bold blue]", border_style="green")
     console.print(Align.center(header))
@@ -62,9 +91,11 @@ def show_table(devices):
     table.add_column("🌐 IP Address", justify="center", style="cyan")
     table.add_column("💻 MAC Address", justify="center", style="yellow")
     table.add_column("🧭 Hostname", justify="center", style="magenta")
+    table.add_column("👤 Registered As", justify="center", style="green")
 
     for i, dev in enumerate(devices, 1):
-        table.add_row(str(i), dev["ip"], dev["mac"], dev["hostname"])
+        role_info = registered_map.get(dev["ip"], "[dim]Unknown[/dim]")
+        table.add_row(str(i), dev["ip"], dev["mac"], dev["hostname"], role_info)
 
     console.print(Align.center(table))
 
@@ -105,6 +136,13 @@ if __name__ == "__main__":
             time.sleep(0.5)
 
     console.print(f"\n[cyan]🔍 Scanning subnet: {subnet}[/cyan]")
-    devices = scan_network(subnet=subnet)
-    show_table(devices)
 
+    start_time = time.time()
+    devices = scan_network(subnet=subnet)
+    end_time = time.time()
+
+    elapsed = round(end_time - start_time, 2)
+    console.print(f"[bold green]⏱️ Scan completed in {elapsed} seconds[/bold green]")
+
+    registered_map = get_registered_devices()
+    show_table(devices, registered_map)
