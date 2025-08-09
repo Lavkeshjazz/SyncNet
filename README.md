@@ -1,27 +1,46 @@
-SYNC-NET: Multicast File Sharing System
-A secure, high-speed, and platform-independent peer-to-peer file sharing system for local networks.
+# 🚀 SYNC-NET: Multicast File Sharing System  
+
+**A secure, high-speed, and platform-independent peer-to-peer file sharing system for local networks.**  
+
+---
+
+## 📌 Overview  
+**SYNC-NET** is a **custom peer-to-peer file sharing system** designed for **fast and secure file transfers** (up to 1–2 GB) over **local networks without internet access**.  
+It uses **UDP multicast** for efficient group transfers and **TCP fallback** for reliable delivery, combined with **AES-256 encryption** and **BLAKE2b hashing** for maximum security.  
+
+🏆 Developed during the **Tally CodeBrewers National Hackathon**  
+🏅 **Top Finalist (National Level)** & **Institute Rank 1 – BIT Mesra**  
+
+---
+
+## ✨ Features  
+
+✅ **Fast  Transfers** – UDP multicast for speed, TCP fallback for reliability  
+✅ **Secure Communication** – AES-256 encryption for end-to-end security  
+✅ **Data Integrity** – File verification with BLAKE2b hashing  
+✅ **Peer Discovery** – Automatic detection using Zeroconf/mDNS  
+✅ **Dynamic Group Management** – Scoped sharing for different groups  
+✅ **Cross-Platform Ready** – Works on Linux; adaptable for other platforms  
+
+---
+
+## 🎯 Real-World Problem & Solution  
+
+**Problem:**  
+In our lab, file sharing during remote sessions (e.g., via PuTTY) relied on third-party platforms, making **daily transfers tedious, slow, and dependent on the internet**.  
+
+**Solution:**  
+We built **SYNC-NET**, a **platform-independent, offline file sharing system** using **UDP multicast + TCP fallback** to transfer large files quickly within a local network, removing third-party dependencies and improving workflow efficiency.  
+
+---
+
+## 🛠️ Tech Stack  
+
+- **Networking:** UDP Multicast, TCP  
+- **Security:** AES-256 Encryption, BLAKE2b Hashing  
+- **Service Discovery:** Zeroconf / mDNS  
 
 
 
- Overview
-SYNC-NET is a custom peer-to-peer file sharing system designed to transfer large files (1–2 GB) quickly and securely over local networks without requiring internet access.
-It uses UDP multicast for efficient group transfers and TCP fallback for reliable delivery, combined with AES-256 encryption and BLAKE2b hashing for data integrity.
 
-This project was developed during the Tally CodeBrewers National Hackathon, where it achieved Institute Rank 1 at BIT Mesra and was recognized as a Top Finalist at the national level.
 
-Features
-Fast Online  Transfers – Uses UDP multicast for group file sharing and TCP for reliability when needed.
-
-Secure Communication – End-to-end encryption with AES-256.
-
-Data Integrity – File verification using BLAKE2b hashing.
-
-Peer Discovery – Automatic detection of devices using Zeroconf/mDNS.
-
-Dynamic Group Management – Create and manage groups for scoped file sharing.
-
-Cross-Platform Ready – Works on Linux and adaptable for other platforms.
-
-** Real-World Problem Solved**
-In our lab, file sharing during remote sessions (e.g., via PuTTY) relied on third-party platforms, making daily transfers tedious and time-consuming.
-SYNC-NET eliminates these inefficiencies by enabling platform-independent, offline file sharing integrated into local workflows, ensuring faster collaboration and reduced dependency on external services.
