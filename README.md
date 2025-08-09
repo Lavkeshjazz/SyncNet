@@ -19,7 +19,7 @@ It uses **UDP multicast** for efficient group transfers and **TCP fallback** for
 
 ## ✨ Features  
 
-✅ **Fast Offline Transfers** – UDP multicast for speed, TCP fallback for reliability  
+✅ **Fast Transfers** – UDP multicast for speed, TCP fallback for reliability  
 ✅ **Secure Communication** – AES-256 encryption for end-to-end security  
 ✅ **Data Integrity** – File verification with BLAKE2b hashing  
 ✅ **Automatic Peer Discovery** – Zeroconf/mDNS service discovery  
